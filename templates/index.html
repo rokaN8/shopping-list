@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopping List</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Shopping List</h1>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </header>
+        
+        <div class="add-item-form">
+            <input type="text" id="new-item" placeholder="Add new item..." maxlength="200">
+            <button id="add-btn" class="btn btn-primary">Add</button>
+        </div>
+        
+        <div id="shopping-list" class="shopping-list">
+            <!-- Items will be loaded here -->
+        </div>
+        
+        <div id="loading" class="loading" style="display: none;">Loading...</div>
+        <div id="error" class="error" style="display: none;"></div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
