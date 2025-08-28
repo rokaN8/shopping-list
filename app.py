@@ -1,9 +1,29 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from flask_talisman import Talisman
 from models import Database
 from config import Config
 
 app = Flask(__name__)
 app.config.from_object(Config)
+
+# HTTPS enforcement and security headers
+Talisman(app, 
+    force_https=app.config.get('FORCE_HTTPS', True),
+    strict_transport_security=True,
+    strict_transport_security_max_age=31536000,
+    content_security_policy={
+        'default-src': "'self'",
+        'script-src': "'self' 'unsafe-inline'",
+        'style-src': "'self' 'unsafe-inline'",
+        'img-src': "'self' data:",
+        'connect-src': "'self'"
+    }
+)
+
+@app.before_request
+def force_https():
+    if app.config.get('FORCE_HTTPS', True) and not request.is_secure and request.headers.get('X-Forwarded-Proto') != 'https':
+        return redirect(request.url.replace('http://', 'https://', 1), code=301)
 
 db = Database(app.config['DATABASE'])
 
@@ -21,6 +41,7 @@ def login():
         
         if username == app.config['USERNAME'] and password == app.config['PASSWORD']:
             session['logged_in'] = True
+            session.permanent = True
             return redirect(url_for('index'))
         else:
             return render_template('login.html', error='Invalid credentials')
