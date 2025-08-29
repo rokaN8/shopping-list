@@ -1,0 +1,29 @@
+[Unit]
+Description=Shopping List Flask Application
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=forking
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/shopping-list
+ExecStart=/home/pi/shopping-list/start_shopping_list.sh
+ExecStop=/home/pi/shopping-list/stop_shopping_list.sh
+Restart=always
+RestartSec=10
+Environment=SECRET_KEY=your-secret-key-here
+Environment=ADMIN_USERNAME=admin
+Environment=ADMIN_PASSWORD=your-secure-password-here
+Environment=FORCE_HTTPS=false
+PIDFile=/home/pi/shopping-list/shopping_list.pid
+
+# Security settings
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/home/pi/shopping-list
+
+[Install]
+WantedBy=multi-user.target

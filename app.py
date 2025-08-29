@@ -7,23 +7,37 @@ app = Flask(__name__)
 app.config.from_object(Config)
 
 # HTTPS enforcement and security headers
-Talisman(app, 
-    force_https=app.config.get('FORCE_HTTPS', True),
-    strict_transport_security=True,
-    strict_transport_security_max_age=31536000,
-    content_security_policy={
-        'default-src': "'self'",
-        'script-src': "'self' 'unsafe-inline'",
-        'style-src': "'self' 'unsafe-inline'",
-        'img-src': "'self' data:",
-        'connect-src': "'self'"
-    }
-)
-
-@app.before_request
-def force_https():
-    if app.config.get('FORCE_HTTPS', True) and not request.is_secure and request.headers.get('X-Forwarded-Proto') != 'https':
-        return redirect(request.url.replace('http://', 'https://', 1), code=301)
+if app.config.get('FORCE_HTTPS', False):
+    Talisman(app, 
+        force_https=True,
+        strict_transport_security=True,
+        strict_transport_security_max_age=31536000,
+        content_security_policy={
+            'default-src': "'self'",
+            'script-src': "'self' 'unsafe-inline'",
+            'style-src': "'self' 'unsafe-inline'",
+            'img-src': "'self' data:",
+            'connect-src': "'self'"
+        }
+    )
+    
+    @app.before_request
+    def force_https():
+        if not request.is_secure and request.headers.get('X-Forwarded-Proto') != 'https':
+            return redirect(request.url.replace('http://', 'https://', 1), code=301)
+else:
+    # Development mode - basic security headers only
+    Talisman(app, 
+        force_https=False,
+        strict_transport_security=False,
+        content_security_policy={
+            'default-src': "'self'",
+            'script-src': "'self' 'unsafe-inline'",
+            'style-src': "'self' 'unsafe-inline'",
+            'img-src': "'self' data:",
+            'connect-src': "'self'"
+        }
+    )
 
 db = Database(app.config['DATABASE'])
 
@@ -100,4 +114,5 @@ def delete_item(item_id):
     return jsonify({'success': True})
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    print("Starting Flask app on http://127.0.0.1:5000")
+    app.run(host='127.0.0.1', port=5000, debug=True)
