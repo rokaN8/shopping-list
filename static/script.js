@@ -1,187 +1,271 @@
 class ShoppingList {
     constructor() {
         this.items = [];
-        this.loadingEl = document.getElementById('loading');
-        this.errorEl = document.getElementById('error');
-        this.listEl = document.getElementById('shopping-list');
-        this.newItemInput = document.getElementById('new-item');
-        this.addBtn = document.getElementById('add-btn');
-        
+        this.init();
+    }
+
+    init() {
         this.bindEvents();
         this.loadItems();
     }
-    
+
     bindEvents() {
-        this.addBtn.addEventListener('click', () => this.addItem());
-        this.newItemInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.addItem();
-        });
-    }
-    
-    showLoading(show) {
-        this.loadingEl.style.display = show ? 'block' : 'none';
-    }
-    
-    showError(message) {
-        this.errorEl.textContent = message;
-        this.errorEl.style.display = message ? 'block' : 'none';
-    }
-    
-    async apiCall(url, options = {}) {
-        try {
-            const response = await fetch(url, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...options.headers
-                },
-                ...options
-            });
-            
-            if (!response.ok) {
-                if (response.status === 401) {
-                    window.location.href = '/login';
-                    return;
-                }
-                throw new Error(`HTTP ${response.status}`);
+        const itemInput = document.getElementById('itemInput');
+        const addBtn = document.getElementById('addBtn');
+        const clearCompletedBtn = document.getElementById('clearCompletedBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+
+        // Add item events
+        addBtn.addEventListener('click', () => this.addItem());
+        itemInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.addItem();
             }
-            
-            return await response.json();
-        } catch (error) {
-            this.showError(`Error: ${error.message}`);
-            throw error;
-        }
+        });
+
+        // Clear completed items
+        clearCompletedBtn.addEventListener('click', () => this.clearCompleted());
+        
+        // Logout
+        logoutBtn.addEventListener('click', () => this.logout());
     }
-    
+
     async loadItems() {
-        this.showLoading(true);
         try {
-            this.items = await this.apiCall('/api/items');
+            this.showLoading(true);
+            const response = await fetch('/api/items');
+            if (!response.ok) throw new Error('Failed to load items');
+            
+            this.items = await response.json();
             this.renderItems();
+            this.updateItemCount();
         } catch (error) {
-            console.error('Failed to load items:', error);
+            this.showError('Failed to load shopping list');
         } finally {
             this.showLoading(false);
         }
     }
-    
+
     async addItem() {
-        const name = this.newItemInput.value.trim();
+        const input = document.getElementById('itemInput');
+        const name = input.value.trim();
+        
         if (!name) return;
-        
+
         try {
-            const newItem = await this.apiCall('/api/items', {
+            const response = await fetch('/api/items', {
                 method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
                 body: JSON.stringify({ name })
             });
+
+            if (!response.ok) throw new Error('Failed to add item');
             
+            const newItem = await response.json();
             this.items.push(newItem);
-            this.newItemInput.value = '';
+            input.value = '';
             this.renderItems();
+            this.updateItemCount();
+            
         } catch (error) {
-            console.error('Failed to add item:', error);
+            this.showError('Failed to add item');
         }
     }
-    
-    async updateItem(id, name) {
+
+    async updateItem(id, updates) {
         try {
-            await this.apiCall(`/api/items/${id}`, {
+            const response = await fetch(`/api/items/${id}`, {
                 method: 'PUT',
-                body: JSON.stringify({ name })
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(updates)
             });
+
+            if (!response.ok) throw new Error('Failed to update item');
             
-            const item = this.items.find(i => i.id === id);
-            if (item) item.name = name;
-            this.renderItems();
+            // Update local item
+            const item = this.items.find(item => item.id === id);
+            if (item) {
+                Object.assign(item, updates);
+                this.renderItems();
+                this.updateItemCount();
+            }
+            
         } catch (error) {
-            console.error('Failed to update item:', error);
+            this.showError('Failed to update item');
         }
     }
-    
-    async toggleItem(id) {
-        try {
-            await this.apiCall(`/api/items/${id}/toggle`, {
-                method: 'PUT'
-            });
-            
-            const item = this.items.find(i => i.id === id);
-            if (item) item.completed = !item.completed;
-            this.renderItems();
-        } catch (error) {
-            console.error('Failed to toggle item:', error);
-        }
-    }
-    
+
     async deleteItem(id) {
-        if (!confirm('Delete this item?')) return;
-        
         try {
-            await this.apiCall(`/api/items/${id}`, {
+            const response = await fetch(`/api/items/${id}`, {
                 method: 'DELETE'
             });
+
+            if (!response.ok) throw new Error('Failed to delete item');
             
-            this.items = this.items.filter(i => i.id !== id);
+            this.items = this.items.filter(item => item.id !== id);
             this.renderItems();
+            this.updateItemCount();
+            
         } catch (error) {
-            console.error('Failed to delete item:', error);
+            this.showError('Failed to delete item');
         }
     }
-    
-    renderItems() {
-        if (this.items.length === 0) {
-            this.listEl.innerHTML = '<div class="empty-state">No items yet. Add your first shopping item above!</div>';
+
+    async clearCompleted() {
+        const completedCount = this.items.filter(item => item.completed).length;
+        if (completedCount === 0) return;
+
+        if (!confirm(`Remove ${completedCount} completed item${completedCount > 1 ? 's' : ''}?`)) {
             return;
         }
+
+        try {
+            const response = await fetch('/api/items/clear-completed', {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) throw new Error('Failed to clear completed items');
+            
+            this.items = this.items.filter(item => !item.completed);
+            this.renderItems();
+            this.updateItemCount();
+            
+        } catch (error) {
+            this.showError('Failed to clear completed items');
+        }
+    }
+
+    renderItems() {
+        const listElement = document.getElementById('shoppingList');
         
-        // Sort items: uncompleted first, then by creation date
-        const sortedItems = [...this.items].sort((a, b) => {
-            if (a.completed !== b.completed) {
-                return a.completed - b.completed;
-            }
-            return new Date(b.created_at) - new Date(a.created_at);
-        });
-        
-        this.listEl.innerHTML = sortedItems.map(item => `
-            <div class="item ${item.completed ? 'completed' : ''}">
-                <input type="checkbox" 
-                       class="item-checkbox" 
-                       ${item.completed ? 'checked' : ''} 
-                       onchange="app.toggleItem(${item.id})">
-                <span class="item-text" 
-                      contenteditable="true" 
-                      data-id="${item.id}"
-                      onblur="app.handleTextEdit(this)"
-                      onkeypress="app.handleTextKeypress(event, this)">${item.name}</span>
-                <div class="item-actions">
-                    <button class="btn btn-danger" onclick="app.deleteItem(${item.id})">Delete</button>
-                </div>
-            </div>
+        if (this.items.length === 0) {
+            listElement.innerHTML = '';
+            return;
+        }
+
+        listElement.innerHTML = this.items.map(item => `
+            <li class="list-item ${item.completed ? 'completed' : ''}" data-id="${item.id}">
+                <input 
+                    type="checkbox" 
+                    class="item-checkbox" 
+                    ${item.completed ? 'checked' : ''}
+                    onchange="shoppingList.toggleComplete(${item.id})"
+                >
+                <input 
+                    type="text" 
+                    class="item-text" 
+                    value="${this.escapeHtml(item.name)}"
+                    onblur="shoppingList.updateItemName(${item.id}, this.value)"
+                    onkeypress="if(event.key==='Enter') this.blur()"
+                >
+                <button 
+                    class="delete-btn" 
+                    onclick="shoppingList.deleteItem(${item.id})"
+                    title="Delete item"
+                >
+                    ✕
+                </button>
+            </li>
         `).join('');
     }
-    
-    handleTextEdit(element) {
-        const id = parseInt(element.dataset.id);
-        const newName = element.textContent.trim();
+
+    toggleComplete(id) {
+        const item = this.items.find(item => item.id === id);
+        if (item) {
+            this.updateItem(id, { completed: !item.completed });
+        }
+    }
+
+    updateItemName(id, newName) {
+        const trimmedName = newName.trim();
+        const item = this.items.find(item => item.id === id);
         
-        if (!newName) {
-            this.renderItems(); // Reset if empty
+        if (!item) return;
+        
+        if (!trimmedName) {
+            // Restore original name if empty
+            this.renderItems();
             return;
         }
         
-        const item = this.items.find(i => i.id === id);
-        if (item && item.name !== newName) {
-            this.updateItem(id, newName);
+        if (trimmedName !== item.name) {
+            this.updateItem(id, { name: trimmedName });
         }
     }
-    
-    handleTextKeypress(event, element) {
-        if (event.key === 'Enter') {
-            element.blur();
-            event.preventDefault();
+
+    updateItemCount() {
+        const totalCount = this.items.length;
+        const completedCount = this.items.filter(item => item.completed).length;
+        const pendingCount = totalCount - completedCount;
+        
+        const countElement = document.getElementById('itemCount');
+        if (totalCount === 0) {
+            countElement.textContent = 'No items';
+        } else if (completedCount === 0) {
+            countElement.textContent = `${totalCount} item${totalCount > 1 ? 's' : ''}`;
+        } else {
+            countElement.textContent = `${pendingCount} pending, ${completedCount} done`;
+        }
+    }
+
+    showLoading(show) {
+        const loadingElement = document.getElementById('loading');
+        loadingElement.style.display = show ? 'block' : 'none';
+    }
+
+    showError(message) {
+        const errorElement = document.getElementById('error');
+        errorElement.textContent = message;
+        errorElement.style.display = 'block';
+        
+        // Hide error after 5 seconds
+        setTimeout(() => {
+            errorElement.style.display = 'none';
+        }, 5000);
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    async logout() {
+        if (!confirm('Are you sure you want to logout?')) {
+            return;
+        }
+
+        try {
+            // Make a request to the logout endpoint to clear authentication
+            const response = await fetch('/logout');
+            
+            // The logout endpoint returns 401, which will trigger browser auth dialog
+            if (response.status === 401) {
+                // Clear any cached credentials by making a request with invalid auth
+                await fetch('/api/items', {
+                    headers: {
+                        'Authorization': 'Basic ' + btoa('invalid:invalid')
+                    }
+                }).catch(() => {
+                    // This request will fail, which is expected
+                });
+                
+                // Redirect to home page, which will trigger login prompt
+                window.location.href = '/';
+            }
+        } catch (error) {
+            // If all else fails, just redirect to force re-auth
+            window.location.href = '/';
         }
     }
 }
 
-// Initialize app when DOM is loaded
+// Initialize the shopping list when the page loads
 document.addEventListener('DOMContentLoaded', () => {
-    window.app = new ShoppingList();
+    window.shoppingList = new ShoppingList();
 });

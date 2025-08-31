@@ -9,20 +9,27 @@
 <body>
     <div class="container">
         <header>
-            <h1>Shopping List</h1>
-            <a href="/logout" class="logout-btn">Logout</a>
+            <div class="header-content">
+                <h1>🛒 Shopping List</h1>
+                <button id="logoutBtn" class="logout-btn" title="Logout">Logout</button>
+            </div>
         </header>
         
         <div class="add-item-form">
-            <input type="text" id="new-item" placeholder="Add new item..." maxlength="200">
-            <button id="add-btn" class="btn btn-primary">Add</button>
+            <input type="text" id="itemInput" placeholder="Add new item..." maxlength="100">
+            <button id="addBtn">Add</button>
         </div>
         
-        <div id="shopping-list" class="shopping-list">
+        <div class="list-actions">
+            <button id="clearCompletedBtn" class="secondary">Clear Completed</button>
+            <span id="itemCount" class="item-count">0 items</span>
+        </div>
+        
+        <ul id="shoppingList" class="shopping-list">
             <!-- Items will be loaded here -->
-        </div>
+        </ul>
         
-        <div id="loading" class="loading" style="display: none;">Loading...</div>
+        <div id="loading" class="loading">Loading...</div>
         <div id="error" class="error" style="display: none;"></div>
     </div>
     

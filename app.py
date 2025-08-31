@@ -1,118 +1,115 @@
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
-from flask_talisman import Talisman
-from models import Database
+import os
+import ssl
+from flask import Flask, render_template, request, jsonify, abort
+from functools import wraps
+import base64
 from config import Config
+import database
 
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# HTTPS enforcement and security headers
-if app.config.get('FORCE_HTTPS', False):
-    Talisman(app, 
-        force_https=True,
-        strict_transport_security=True,
-        strict_transport_security_max_age=31536000,
-        content_security_policy={
-            'default-src': "'self'",
-            'script-src': "'self' 'unsafe-inline'",
-            'style-src': "'self' 'unsafe-inline'",
-            'img-src': "'self' data:",
-            'connect-src': "'self'"
-        }
-    )
-    
-    @app.before_request
-    def force_https():
-        if not request.is_secure and request.headers.get('X-Forwarded-Proto') != 'https':
-            return redirect(request.url.replace('http://', 'https://', 1), code=301)
-else:
-    # Development mode - basic security headers only
-    Talisman(app, 
-        force_https=False,
-        strict_transport_security=False,
-        content_security_policy={
-            'default-src': "'self'",
-            'script-src': "'self' 'unsafe-inline'",
-            'style-src': "'self' 'unsafe-inline'",
-            'img-src': "'self' data:",
-            'connect-src': "'self'"
-        }
-    )
+def check_auth(username, password):
+    """Check if username and password are valid."""
+    return username == Config.USERNAME and password == Config.PASSWORD
 
-db = Database(app.config['DATABASE'])
+def authenticate():
+    """Send a 401 response that enables basic auth."""
+    return '', 401, {'WWW-Authenticate': 'Basic realm="Shopping List"'}
+
+def requires_auth(f):
+    """Decorator that requires basic authentication."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth = request.authorization
+        if not auth or not check_auth(auth.username, auth.password):
+            return authenticate()
+        return f(*args, **kwargs)
+    return decorated
 
 @app.route('/')
+@requires_auth
 def index():
-    if 'logged_in' not in session:
-        return redirect(url_for('login'))
+    """Render the main shopping list page."""
     return render_template('index.html')
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        
-        if username == app.config['USERNAME'] and password == app.config['PASSWORD']:
-            session['logged_in'] = True
-            session.permanent = True
-            return redirect(url_for('index'))
-        else:
-            return render_template('login.html', error='Invalid credentials')
-    
-    return render_template('login.html')
-
-@app.route('/logout')
-def logout():
-    session.pop('logged_in', None)
-    return redirect(url_for('login'))
-
-def require_login(f):
-    def decorated_function(*args, **kwargs):
-        if 'logged_in' not in session:
-            return jsonify({'error': 'Authentication required'}), 401
-        return f(*args, **kwargs)
-    decorated_function.__name__ = f.__name__
-    return decorated_function
-
 @app.route('/api/items', methods=['GET'])
-@require_login
+@requires_auth
 def get_items():
-    items = db.get_all_items()
+    """Get all shopping list items."""
+    items = database.get_all_items()
     return jsonify(items)
 
 @app.route('/api/items', methods=['POST'])
-@require_login
+@requires_auth
 def add_item():
+    """Add a new item to the shopping list."""
     data = request.get_json()
     if not data or 'name' not in data:
         return jsonify({'error': 'Item name is required'}), 400
     
-    item_id = db.add_item(data['name'])
-    return jsonify({'id': item_id, 'name': data['name'], 'completed': False}), 201
+    name = data['name'].strip()
+    if not name:
+        return jsonify({'error': 'Item name cannot be empty'}), 400
+    
+    item_id = database.add_item(name)
+    return jsonify({'id': item_id, 'name': name, 'completed': False}), 201
 
 @app.route('/api/items/<int:item_id>', methods=['PUT'])
-@require_login
+@requires_auth
 def update_item(item_id):
+    """Update an existing item."""
     data = request.get_json()
-    if not data or 'name' not in data:
-        return jsonify({'error': 'Item name is required'}), 400
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
     
-    db.update_item(item_id, data['name'])
-    return jsonify({'id': item_id, 'name': data['name']})
-
-@app.route('/api/items/<int:item_id>/toggle', methods=['PUT'])
-@require_login
-def toggle_item(item_id):
-    db.toggle_item(item_id)
+    name = data.get('name')
+    completed = data.get('completed')
+    
+    if name is not None:
+        name = name.strip()
+        if not name:
+            return jsonify({'error': 'Item name cannot be empty'}), 400
+    
+    database.update_item(item_id, name=name, completed=completed)
     return jsonify({'success': True})
 
 @app.route('/api/items/<int:item_id>', methods=['DELETE'])
-@require_login
+@requires_auth
 def delete_item(item_id):
-    db.delete_item(item_id)
+    """Delete an item from the shopping list."""
+    database.delete_item(item_id)
     return jsonify({'success': True})
 
+@app.route('/api/items/clear-completed', methods=['DELETE'])
+@requires_auth
+def clear_completed():
+    """Clear all completed items."""
+    database.clear_completed_items()
+    return jsonify({'success': True})
+
+@app.route('/logout')
+def logout():
+    """Logout endpoint that forces re-authentication."""
+    return '', 401, {'WWW-Authenticate': 'Basic realm="Shopping List - Logged Out"'}
+
 if __name__ == '__main__':
-    print("Starting Flask app on http://127.0.0.1:5000")
-    app.run(host='127.0.0.1', port=5000, debug=True)
+    # Initialize database
+    database.init_database()
+    
+    # Check if SSL certificates exist
+    ssl_context = None
+    if os.path.exists(Config.SSL_CERT) and os.path.exists(Config.SSL_KEY):
+        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ssl_context.load_cert_chain(Config.SSL_CERT, Config.SSL_KEY)
+        print(f"Starting HTTPS server on https://localhost:{Config.PORT}")
+    else:
+        print(f"SSL certificates not found. Starting HTTP server on http://localhost:{Config.PORT}")
+        print("Run the certificate generation script to enable HTTPS.")
+    
+    app.run(
+        host=Config.HOST,
+        port=Config.PORT,
+        debug=Config.DEBUG,
+        ssl_context=ssl_context
+    )
