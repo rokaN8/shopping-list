@@ -5,8 +5,36 @@ class ShoppingList {
     }
 
     init() {
+        this.initTheme();
         this.bindEvents();
         this.loadItems();
+    }
+
+    initTheme() {
+        // Get saved theme or default to dark
+        const savedTheme = localStorage.getItem('shopping-list-theme') || 'dark';
+        this.setTheme(savedTheme);
+    }
+
+    setTheme(theme) {
+        const body = document.body;
+        const themeIcon = document.getElementById('themeIcon');
+        
+        if (theme === 'light') {
+            body.setAttribute('data-theme', 'light');
+            if (themeIcon) themeIcon.textContent = '🌞';
+        } else {
+            body.removeAttribute('data-theme');
+            if (themeIcon) themeIcon.textContent = '🌙';
+        }
+        
+        localStorage.setItem('shopping-list-theme', theme);
+    }
+
+    toggleTheme() {
+        const currentTheme = document.body.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+        this.setTheme(newTheme);
     }
 
     bindEvents() {
@@ -14,6 +42,7 @@ class ShoppingList {
         const addBtn = document.getElementById('addBtn');
         const clearCompletedBtn = document.getElementById('clearCompletedBtn');
         const logoutBtn = document.getElementById('logoutBtn');
+        const themeToggle = document.getElementById('themeToggle');
 
         // Add item events
         addBtn.addEventListener('click', () => this.addItem());
@@ -28,6 +57,11 @@ class ShoppingList {
         
         // Logout
         logoutBtn.addEventListener('click', () => this.logout());
+        
+        // Theme toggle
+        if (themeToggle) {
+            themeToggle.addEventListener('click', () => this.toggleTheme());
+        }
     }
 
     async loadItems() {

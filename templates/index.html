@@ -5,23 +5,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shopping List</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script>
+        // Initialize theme immediately to prevent flash
+        (function() {
+            const savedTheme = localStorage.getItem('shopping-list-theme') || 'dark';
+            if (savedTheme === 'light') {
+                document.body.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
 </head>
 <body>
     <div class="container">
         <header>
             <div class="header-content">
                 <h1>🛒 Shopping List</h1>
-                <button id="logoutBtn" class="logout-btn" title="Logout">Logout</button>
+                <div class="header-actions">
+                    <button id="themeToggle" class="theme-toggle" title="Toggle theme" aria-label="Toggle between light and dark theme">
+                        <span id="themeIcon">🌙</span>
+                    </button>
+                    <button id="logoutBtn" class="logout-btn btn btn-danger" title="Logout">Logout</button>
+                </div>
             </div>
         </header>
         
         <div class="add-item-form">
             <input type="text" id="itemInput" placeholder="Add new item..." maxlength="100">
-            <button id="addBtn">Add</button>
+            <button id="addBtn" class="btn btn-primary">Add</button>
         </div>
         
         <div class="list-actions">
-            <button id="clearCompletedBtn" class="secondary">Clear Completed</button>
+            <button id="clearCompletedBtn" class="btn btn-secondary">Clear Completed</button>
             <span id="itemCount" class="item-count">0 items</span>
         </div>
         
