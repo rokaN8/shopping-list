@@ -1,7 +1,7 @@
 import os
 
 class Config:
-    # Basic Auth credentials
+    # Login credentials
     USERNAME = os.environ.get('SHOPPING_USERNAME', 'admin')
     PASSWORD = os.environ.get('SHOPPING_PASSWORD', 'password123')
     
@@ -17,5 +17,7 @@ class Config:
     SSL_CERT = 'certs/cert.pem'
     SSL_KEY = 'certs/key.pem'
     
-    # Security
+    # Security & Sessions
     SECRET_KEY = os.environ.get('SECRET_KEY', 'your-secret-key-change-this')
+    SESSION_TYPE = 'filesystem'
+    PERMANENT_SESSION_LIFETIME = 86400  # 24 hours in seconds

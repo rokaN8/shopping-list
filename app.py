@@ -1,47 +1,59 @@
 import os
 import ssl
-from flask import Flask, render_template, request, jsonify, abort
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
 from functools import wraps
-import base64
 from config import Config
 import database
 
 app = Flask(__name__)
 app.config.from_object(Config)
 
-def check_auth(username, password):
+def check_login(username, password):
     """Check if username and password are valid."""
     return username == Config.USERNAME and password == Config.PASSWORD
 
-def authenticate():
-    """Send a 401 response that enables basic auth."""
-    return '', 401, {'WWW-Authenticate': 'Basic realm="Shopping List"'}
-
-def requires_auth(f):
-    """Decorator that requires basic authentication."""
+def requires_login(f):
+    """Decorator that requires user to be logged in via session."""
     @wraps(f)
     def decorated(*args, **kwargs):
-        auth = request.authorization
-        if not auth or not check_auth(auth.username, auth.password):
-            return authenticate()
+        if not session.get('logged_in'):
+            return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """Login page and login processing."""
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
+        
+        if check_login(username, password):
+            session['logged_in'] = True
+            session['username'] = username
+            session.permanent = True
+            return redirect(url_for('index'))
+        else:
+            flash('Invalid username or password', 'error')
+            return render_template('login.html', error=True)
+    
+    return render_template('login.html')
+
 @app.route('/')
-@requires_auth
+@requires_login
 def index():
     """Render the main shopping list page."""
     return render_template('index.html')
 
 @app.route('/api/items', methods=['GET'])
-@requires_auth
+@requires_login
 def get_items():
     """Get all shopping list items."""
     items = database.get_all_items()
     return jsonify(items)
 
 @app.route('/api/items', methods=['POST'])
-@requires_auth
+@requires_login
 def add_item():
     """Add a new item to the shopping list."""
     data = request.get_json()
@@ -56,7 +68,7 @@ def add_item():
     return jsonify({'id': item_id, 'name': name, 'completed': False}), 201
 
 @app.route('/api/items/<int:item_id>', methods=['PUT'])
-@requires_auth
+@requires_login
 def update_item(item_id):
     """Update an existing item."""
     data = request.get_json()
@@ -75,14 +87,14 @@ def update_item(item_id):
     return jsonify({'success': True})
 
 @app.route('/api/items/<int:item_id>', methods=['DELETE'])
-@requires_auth
+@requires_login
 def delete_item(item_id):
     """Delete an item from the shopping list."""
     database.delete_item(item_id)
     return jsonify({'success': True})
 
 @app.route('/api/items/clear-completed', methods=['DELETE'])
-@requires_auth
+@requires_login
 def clear_completed():
     """Clear all completed items."""
     database.clear_completed_items()
@@ -90,8 +102,9 @@ def clear_completed():
 
 @app.route('/logout')
 def logout():
-    """Logout endpoint that forces re-authentication."""
-    return '', 401, {'WWW-Authenticate': 'Basic realm="Shopping List - Logged Out"'}
+    """Logout endpoint that clears session and redirects to login."""
+    session.clear()
+    return redirect(url_for('login'))
 
 if __name__ == '__main__':
     # Initialize database

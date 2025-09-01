@@ -241,26 +241,14 @@ class ShoppingList {
         }
 
         try {
-            // Make a request to the logout endpoint to clear authentication
+            // Make a request to the logout endpoint to clear session
             const response = await fetch('/logout');
             
-            // The logout endpoint returns 401, which will trigger browser auth dialog
-            if (response.status === 401) {
-                // Clear any cached credentials by making a request with invalid auth
-                await fetch('/api/items', {
-                    headers: {
-                        'Authorization': 'Basic ' + btoa('invalid:invalid')
-                    }
-                }).catch(() => {
-                    // This request will fail, which is expected
-                });
-                
-                // Redirect to home page, which will trigger login prompt
-                window.location.href = '/';
-            }
+            // Redirect to login page (logout endpoint handles session clearing)
+            window.location.href = '/login';
         } catch (error) {
-            // If all else fails, just redirect to force re-auth
-            window.location.href = '/';
+            // If request fails, still redirect to login page
+            window.location.href = '/login';
         }
     }
 }
