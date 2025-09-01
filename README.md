@@ -1,16 +1,28 @@
 # Shopping List Web App 🛒
 
-A secure, mobile-friendly shopping list web application designed to run on Raspberry Pi with internet access via port forwarding. Features HTTPS encryption, basic authentication, and automatic startup on boot.
+A secure, mobile-friendly shopping list web application designed to run on Raspberry Pi with internet access via port forwarding. Features modern dark/light themes, session-based authentication, rate limiting, and automatic startup on boot.
+
+## Screenshots
+
+### Login Interface
+![Login Page - Dark Theme](screenshots/login-dark.png)
+*Secure login page with modern dark theme and rate limiting protection*
+
+### Shopping List Interface  
+![Shopping List - Dark Theme](screenshots/shopping-list-dark.png)
+*Main shopping list interface with dark theme, theme toggle, and responsive design*
 
 ## Features
 
-- ✅ **Secure Access**: HTTP Basic Authentication with configurable credentials
+- 🔐 **Secure Login System**: Session-based authentication with rate limiting to prevent brute force attacks
+- 🎨 **Modern Dark/Light Themes**: Professional interface with theme toggle and localStorage persistence
 - 🔒 **HTTPS Support**: Self-signed SSL certificates for encrypted connections
-- 📱 **Mobile Friendly**: Responsive design optimized for mobile devices
+- 📱 **Mobile Friendly**: Responsive design optimized for mobile devices with touch-friendly controls
 - 🔄 **Real-time Updates**: Dynamic list management without page reloads
 - ⚡ **Auto-start**: Systemd service for automatic startup on Raspberry Pi boot
 - 🌐 **Internet Access**: Designed for port forwarding and remote access
 - 💾 **SQLite Database**: Lightweight, file-based data storage
+- 🛡️ **Rate Limiting**: Progressive lockout system protects against automated attacks
 
 ## Quick Start
 
@@ -176,6 +188,17 @@ For a production setup without browser warnings:
 
 ## Usage
 
+### Authentication
+- **Login**: Use the secure login page with your configured credentials
+- **Default Credentials**: admin / password123 (change these immediately!)
+- **Rate Limiting**: After 5 failed login attempts, account is temporarily locked
+- **Logout**: Click the logout button to end your session
+
+### Theme System
+- **Default Theme**: Dark mode for comfortable viewing
+- **Theme Toggle**: Click the 🌙/🌞 button in the header to switch themes
+- **Persistence**: Your theme preference is saved automatically
+
 ### Adding Items
 - Type in the input field and press Enter or click "Add"
 - Items are saved automatically
@@ -191,6 +214,7 @@ The interface is optimized for mobile devices with:
 - Large touch targets
 - Responsive layout
 - Mobile-friendly forms
+- Smooth theme transitions
 
 ## System Management
 
@@ -230,7 +254,7 @@ sudo systemctl restart shopping-list
 
 ```
 shopping-list/
-├── app.py                    # Main Flask application
+├── app.py                    # Main Flask application with session auth & rate limiting
 ├── database.py              # Database operations
 ├── config.py                # Configuration settings
 ├── generate_certs.py        # SSL certificate generation
@@ -240,11 +264,15 @@ shopping-list/
 ├── run_windows.bat          # Windows run script
 ├── shopping-list.service    # Systemd service template
 ├── .env                     # Environment variables (created during setup)
+├── screenshots/            # Application screenshots
+│   ├── login-dark.png      # Login page screenshot
+│   └── shopping-list-dark.png # Main interface screenshot
 ├── static/
-│   ├── style.css           # Responsive CSS
-│   └── script.js           # Frontend JavaScript
+│   ├── style.css           # Modern CSS with dark/light themes
+│   └── script.js           # Frontend JavaScript with theme toggle
 ├── templates/
-│   └── index.html          # Main HTML template
+│   ├── login.html          # Login page template
+│   └── index.html          # Main shopping list template
 ├── certs/                  # SSL certificates (generated)
 │   ├── cert.pem
 │   └── key.pem
